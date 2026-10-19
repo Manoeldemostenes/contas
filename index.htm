@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8"><script data-track="">
+(function () {
+  var cfg = {"appId":"0bf017c0-6f04-4052-a2c0-93ea0d032e5d","deployId":"c4df89b3-87aa-4f8c-ab1c-ae88d46701c6","baseUrl":"https://beta.mitralab.io/audience","publicPath":"/public/v1/batches","authenticatedPath":"/api/v1/batches","contentType":"text/plain;charset=UTF-8","hostParam":"previewHost","publishedSurface":"published","builderSurface":"builder","sessionStore":"localStorage","sessionKey":"mitra_usage_session_0bf017c0-6f04-4052-a2c0-93ea0d032e5d","policyKey":"mitra_usage_policy_0bf017c0-6f04-4052-a2c0-93ea0d032e5d","previewKey":"mitra_usage_preview_0bf017c0-6f04-4052-a2c0-93ea0d032e5d","parentKey":"mitra_usage_parent_0bf017c0-6f04-4052-a2c0-93ea0d032e5d","deviceKey":"mitra_usage_device","authKey":"mitra_auth_0bf017c0-6f04-4052-a2c0-93ea0d032e5d","legacyAuthKey":"mitra-session","probeKey":"mitra_usage_probe","tickMs":15000,"firstIntervalMs":30000,"intervalMs":600000,"minIntervalMs":60000,"maxIntervalMs":3600000,"maxRetryAfterMs":86400000,"idleTimeoutMs":1800000,"maxSessionMs":43200000,"activityWindowMs":60000,"minSessionMs":60000,"maxCreditMs":45000,"maxKeepaliveBytes":61440,"maxEvents":50,"maxPending":20,"maxPathKeys":200,"maxPath":1024,"maxOrigin":512};
+
+  var start = function () {
+    try {
+      var now = function () { return Date.now(); };
+
+      var uuid = function () {
+        try { return crypto.randomUUID(); } catch (e) {
+          return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+            var r = (Math.random() * 16) | 0;
+            return (c === "x" ? r : ((r & 0x3) | 0x8)).toString(16);
+          });
+        }
+      };
+
+      var uuidV7 = function () {
+        var r = uuid().replace(/-/g, "");
+        var ts = ("000000000000" + now().toString(16)).slice(-12);
+        var variant = ((parseInt(r.charAt(16), 16) & 0x3) | 0x8).toString(16);
+        return ts.slice(0, 8) + "-" + ts.slice(8) + "-7" + r.slice(1, 4) + "-"
+          + variant + r.slice(17, 20) + "-" + r.slice(20);
+      };
+
+      var openStore = function (name) {
+        var live = true, memo = {};
+        try {
+          window[name].setItem(cfg.probeKey, "1");
+          window[name].removeItem(cfg.probeKey);
+        } catch (e) { live = false; }
+        return {
+          get: function (key) {
+            if (live) {
+              try { return window[name].getItem(key); } catch (e) { live = false; }
+            }
+            return Object.prototype.hasOwnProperty.call(memo, key) ? memo[key] : null;
+          },
+          set: function (key, value) {
+            if (live) {
+              try { window[name].setItem(key, value); return; } catch (e) { live = false; }
+            }
+            memo[key] = value;
+          }
+        };
+      };
+
+      var local = openStore("localStorage");
+      var tab = openStore("sessionStorage");
+      var store = cfg.sessionStore === "localStorage" ? local : openStore(cfg.sessionStore);
+
+      var framed = true;
+      try { framed = window.parent !== window; } catch (e) { framed = true; }
+      var previewed = String(location.hash || "").indexOf(cfg.hostParam) !== -1;
+      if (previewed) { tab.set(cfg.previewKey, "1"); }
+      var surface = previewed || (framed && tab.get(cfg.previewKey))
+        ? cfg.builderSurface
+        : cfg.publishedSurface;
+
+      var declaredHost = function () {
+        try {
+          return new URLSearchParams(String(location.hash || "").replace(/^#/, ""))
+            .get(cfg.hostParam);
+        } catch (e) { return null; }
+      };
+
+      var addressOf = function (value) {
+        try {
+          var url = new URL(value);
+          if (!/^https?:$/.test(url.protocol)) { return null; }
+          if (url.origin.length > cfg.maxOrigin || url.origin === location.origin) { return null; }
+          // a referrer policy trims the address down to the origin plus "/", so a bare root
+          // tells nothing about the path
+          var whole = url.pathname === "/" ? url.origin : url.origin + url.pathname;
+          return whole.length <= cfg.maxOrigin ? whole : url.origin;
+        } catch (e) { return null; }
+      };
+
+      var framedAddress = function () {
+        var referred = null;
+        try { referred = addressOf(String(document.referrer || "")); } catch (e) {}
+        var top = null;
+        try {
+          // the chain carries origins only, and Firefox carries no chain at all
+          var chain = location.ancestorOrigins;
+          top = chain && chain.length ? addressOf(String(chain[chain.length - 1])) : null;
+        } catch (e) {}
+        if (!referred || !top) { return referred || top; }
+        // the referrer names the immediate parent, so under nesting it can be the intermediary;
+        // the top wins and the intermediary path does not travel pinned to it
+        try { return new URL(referred).origin === top ? referred : top; } catch (e) { return top; }
+      };
+
+      var parentKey = cfg.parentKey + "_" + surface;
+      var declared = surface === cfg.builderSurface ? declaredHost() : null;
+      var parentOrigin = null;
+      if (declared) {
+        parentOrigin = addressOf(declared);
+        tab.set(parentKey, parentOrigin || "");
+      } else if (framed) {
+        parentOrigin = addressOf(tab.get(parentKey) || "");
+        if (!parentOrigin) {
+          parentOrigin = framedAddress();
+          if (parentOrigin) { tab.set(parentKey, parentOrigin); }
+        }
+      }
+
+      var sessionKey = cfg.sessionKey + "_" + surface;
+      if (!cfg.baseUrl) { return; }
+
+      var deviceId = local.get(cfg.deviceKey) || uuid();
+      local.set(cfg.deviceKey, deviceId);
+
+      var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      var subject = function (value) {
+        return typeof value === "string" && UUID.test(value) ? value : null;
+      };
+
+      var claimsOf = function (token) {
+        try {
+          var part = token.split(".")[1];
+          if (!part) { return null; }
+          var base64 = part.replace(/-/g, "+").replace(/_/g, "/");
+          var claims = JSON.parse(atob(base64 + "====".slice(0, (4 - (base64.length % 4)) % 4)));
+          return claims && typeof claims === "object" ? claims : null;
+        } catch (e) { return null; }
+      };
+
+      var storedAuth = function (key) {
+        try {
+          var raw = local.get(key);
+          var auth = raw ? JSON.parse(raw) : null;
+          if (!auth) { return null; }
+          var token = String(auth.token == null ? "" : auth.token)
+            .replace(/^\s*(?:bearer\s+)+/i, "").trim();
+          var claims = claimsOf(token);
+          if (claims && claims.app_id && claims.app_id !== cfg.appId) { return null; }
+          var id = subject(auth.user && auth.user.id) || subject(claims && claims.sub);
+          if (!token.length && !id) { return null; }
+          return { id: id, bearer: token.length ? token : null };
+        } catch (e) { return null; }
+      };
+
+      var identity = function () {
+        var app = storedAuth(cfg.authKey), legacy = storedAuth(cfg.legacyAuthKey);
+        var named = (app && app.id ? app : null) || (legacy && legacy.id ? legacy : null);
+        return named || app || legacy || { id: null, bearer: null };
+      };
+
+      var route = function () {
+        var hash = String(location.hash || "");
+        if (hash.indexOf(cfg.hostParam) !== -1) { hash = ""; }
+        return (location.pathname + hash.split(/[?&]/)[0]).slice(0, cfg.maxPath);
+      };
+
+      var pathKey = function (value) {
+        var hash = 0x811c9dc5;
+        for (var i = 0; i < value.length; i += 1) {
+          hash = Math.imul(hash ^ value.charCodeAt(i), 0x01000193) >>> 0;
+        }
+        return hash.toString(36);
+      };
+
+      var landed = route();
+      var session = null, pending = [], intervalMs = cfg.firstIntervalMs;
+      var failures = 0, stopped = false, sentEngagedMs = -1;
+      var lastTickAt = now(), lastFlushAt = now(), lastActivityAt = now();
+      var wasVisible = document.visibilityState === "visible";
+      var policy = {
+        checkpointIntervalMs: cfg.intervalMs,
+        idleTimeoutMs: cfg.idleTimeoutMs,
+        maxSessionMs: cfg.maxSessionMs,
+        activityWindowMs: cfg.activityWindowMs
+      };
+
+      var bounded = function (value, floor, ceiling, fallback) {
+        return typeof value === "number" && isFinite(value) && value >= floor
+          ? Math.min(value, ceiling)
+          : fallback;
+      };
+
+      var applyPolicy = function (source) {
+        if (!source) { return; }
+        policy.checkpointIntervalMs = bounded(
+          source.checkpointIntervalMs, cfg.minIntervalMs, cfg.maxIntervalMs, cfg.intervalMs);
+        policy.idleTimeoutMs = bounded(
+          source.idleTimeoutMs, cfg.minSessionMs, cfg.idleTimeoutMs, cfg.idleTimeoutMs);
+        policy.maxSessionMs = bounded(
+          source.maxSessionMs, cfg.minSessionMs, cfg.maxSessionMs, cfg.maxSessionMs);
+        // idle is the ceiling because a wider window credits a parked tab for the whole window
+        policy.activityWindowMs = bounded(
+          source.activityWindowMs, cfg.tickMs, policy.idleTimeoutMs,
+          Math.min(cfg.activityWindowMs, policy.idleTimeoutMs));
+      };
+
+      var savePolicy = function () {
+        try { store.set(cfg.policyKey, JSON.stringify(policy)); } catch (e) {}
+      };
+
+      try { applyPolicy(JSON.parse(store.get(cfg.policyKey) || "null")); } catch (e) {}
+
+      var closed = function (s) { return s.finalSeq > 0 && s.finalSeq === s.seq; };
+
+      var valid = function (s) {
+        return !!s && typeof s.id === "string" && Array.isArray(s.pathKeys)
+          && [s.seq, s.finalSeq, s.startedAt, s.lastSeenAt, s.engagedMs, s.pathCount]
+            .every(function (value) { return typeof value === "number" && isFinite(value); });
+      };
+
+      var save = function (s) {
+        try { store.set(sessionKey, JSON.stringify(s)); } catch (e) {}
+      };
+
+      var snapshotOf = function (s, final) {
+        var ageMs = Math.max(0, s.lastSeenAt - s.startedAt);
+        var idleMs = Math.max(0, now() - s.lastSeenAt);
+        s.seq += 1;
+        return {
+          eventId: uuid(),
+          sessionId: s.id,
+          seq: s.seq,
+          final: !!final,
+          appId: cfg.appId,
+          deployId: s.deployId || cfg.deployId,
+          deviceId: deviceId,
+          userId: s.userId || null,
+          engagedMs: Math.min(s.engagedMs, ageMs),
+          ageMs: ageMs,
+          idleMs: idleMs,
+          entryPath: s.entryPath,
+          lastPath: s.lastPath,
+          pathCount: s.pathCount,
+          origin: location.origin,
+          parentOrigin: parentOrigin || null,
+          attributes: {},
+          surface: surface
+        };
+      };
+
+      var queue = function (snap) {
+        pending.push(snap);
+        while (pending.length > cfg.maxPending) { pending.shift(); }
+      };
+
+      var openSession = function (at, user) {
+        return {
+          id: uuidV7(),
+          seq: 0,
+          finalSeq: 0,
+          deployId: cfg.deployId,
+          userId: user,
+          startedAt: at,
+          lastSeenAt: at,
+          engagedMs: 0,
+          entryPath: landed,
+          lastPath: landed,
+          pathCount: 1,
+          pathKeys: [pathKey(landed)]
+        };
+      };
+
+      var current = function () {
+        var stored = null;
+        try {
+          var raw = store.get(sessionKey);
+          stored = raw ? JSON.parse(raw) : null;
+        } catch (e) { stored = null; }
+        var s = null;
+        if (valid(stored)) {
+          s = stored;
+        } else if (valid(session)) {
+          s = session;
+          local.set(cfg.deviceKey, deviceId);
+        }
+        if (!s) { return null; }
+        if (now() - s.lastSeenAt > policy.idleTimeoutMs
+          || now() - s.startedAt > policy.maxSessionMs) {
+          if (!closed(s)) {
+            queue(snapshotOf(s, true));
+            s.finalSeq = s.seq;
+            save(s);
+          }
+          return null;
+        }
+        return s;
+      };
+
+      var tick = function () {
+        var at = now();
+        // a wall clock that jumped back would hold the activity window open for the whole jump
+        lastActivityAt = Math.min(lastActivityAt, at);
+        var active = wasVisible && at - lastActivityAt < policy.activityWindowMs;
+        var credit = active ? Math.min(Math.max(0, at - lastTickAt), cfg.maxCreditMs) : 0;
+        wasVisible = document.visibilityState === "visible";
+        lastTickAt = at;
+        session = current();
+        var user = identity().id;
+        var handedOver = !!session && !!user && !!session.userId && session.userId !== user;
+        if (handedOver) {
+          if (!closed(session)) {
+            queue(snapshotOf(session, true));
+            session.finalSeq = session.seq;
+            save(session);
+          }
+          session = null;
+        }
+        if (!session) {
+          if (credit <= 0) { return; }
+          session = openSession(at - credit, user);
+          sentEngagedMs = -1;
+        } else if (!session.userId && user) {
+          session.userId = user;
+        }
+        if (credit > 0) {
+          session.engagedMs += credit;
+          session.lastSeenAt = Math.max(session.lastSeenAt, at);
+          if (closed(session)) { session.finalSeq = 0; }
+        }
+        var path = route();
+        if (path !== session.lastPath) {
+          session.lastPath = path;
+          var key = pathKey(path);
+          if (session.pathKeys.indexOf(key) === -1 && session.pathKeys.length < cfg.maxPathKeys) {
+            session.pathKeys.push(key);
+            session.pathCount += 1;
+          }
+        }
+        save(session);
+      };
+
+      var body = function (batch) { return JSON.stringify({ snapshots: batch }); };
+
+      var retryAfterMs = function (value) {
+        var raw = String(value || "").trim();
+        if (!raw) { return null; }
+        if (/^\d+$/.test(raw)) { return parseInt(raw, 10) * 1000; }
+        var at = Date.parse(raw);
+        return isNaN(at) ? null : Math.max(0, at - now());
+      };
+
+      var backOff = function (failure) {
+        failures += 1;
+        var floor = retryAfterMs(failure && failure.retryAfter);
+        var wait = floor === null
+          ? cfg.minIntervalMs * Math.pow(2, Math.min(failures, 6)) * (0.85 + Math.random() * 0.3)
+          : floor * (1 + Math.random() * 0.3);
+        var ceiling = floor === null ? cfg.maxIntervalMs : cfg.maxRetryAfterMs;
+        intervalMs = Math.min(ceiling, Math.max(cfg.minIntervalMs, Math.round(wait)));
+      };
+
+      var post = function (batch, bearer) {
+        var headers = { "Content-Type": cfg.contentType };
+        if (bearer) { headers.Authorization = "Bearer " + bearer; }
+        return fetch(cfg.baseUrl + (bearer ? cfg.authenticatedPath : cfg.publicPath), {
+          method: "POST", headers: headers, body: body(batch)
+        }).then(function (response) {
+          if (bearer && (response.status === 401 || response.status === 403)) {
+            return post(batch, null);
+          }
+          if (!response.ok) {
+            return Promise.reject({
+              status: response.status, retryAfter: response.headers.get("Retry-After")
+            });
+          }
+          return response.json().catch(function () { return null; });
+        });
+      };
+
+      var checkpoint = function () {
+        tick();
+        if (stopped) { return; }
+        var live = !!session && session.engagedMs > 0 && session.engagedMs !== sentEngagedMs;
+        if (!pending.length && !live) { return; }
+        lastFlushAt = now();
+        var carried = pending.slice(0, cfg.maxEvents - (live ? 1 : 0));
+        var snap = live ? snapshotOf(session, false) : null;
+        if (snap) { save(session); }
+        post(carried.concat(snap ? [snap] : []), identity().bearer).then(function (answer) {
+          pending = pending.slice(carried.length);
+          failures = 0;
+          if (snap) { sentEngagedMs = snap.engagedMs; }
+          if (answer) { applyPolicy(answer); savePolicy(); }
+          intervalMs = policy.checkpointIntervalMs;
+          if (answer && answer.stop === true) { stopped = true; }
+        }).catch(backOff);
+      };
+
+      var bytes = function (text) {
+        try { return new Blob([text]).size; } catch (e) { return text.length; }
+      };
+
+      var finish = function () {
+        tick();
+        if (stopped) { return; }
+        var live = !!session && session.engagedMs > 0 && !closed(session);
+        if (!pending.length && !live) { return; }
+        var carried = pending.slice(0, cfg.maxEvents - (live ? 1 : 0));
+        var snap = live ? snapshotOf(session, true) : null;
+        if (snap) { save(session); }
+        var payload = body(carried.concat(snap ? [snap] : []));
+        var settled = false;
+        var settle = function () {
+          if (settled) { return; }
+          settled = true;
+          pending = pending.slice(carried.length);
+          lastFlushAt = now();
+          if (snap) {
+            sentEngagedMs = snap.engagedMs;
+            session.finalSeq = session.seq;
+            save(session);
+          }
+        };
+        var beacon = function () {
+          try {
+            var blob = new Blob([payload], { type: cfg.contentType });
+            if (navigator.sendBeacon(cfg.baseUrl + cfg.publicPath, blob)) { settle(); }
+          } catch (e) {}
+        };
+        var bearer = identity().bearer;
+        if (bearer && bytes(payload) <= cfg.maxKeepaliveBytes) {
+          try {
+            fetch(cfg.baseUrl + cfg.authenticatedPath, {
+              method: "POST", keepalive: true, body: payload,
+              headers: { "Content-Type": cfg.contentType, Authorization: "Bearer " + bearer }
+            }).then(function (response) {
+              if (!response.ok) { beacon(); }
+            }).catch(beacon);
+            settle();
+            return;
+          } catch (e) {}
+        }
+        beacon();
+      };
+
+      var loop = function () {
+        try {
+          tick();
+          if (now() - lastFlushAt >= intervalMs) { checkpoint(); }
+        } catch (e) {}
+        setTimeout(loop, cfg.tickMs);
+      };
+      setTimeout(loop, cfg.tickMs);
+
+      var touched = function () { lastActivityAt = now(); };
+
+      // scroll does not bubble, so only the capture phase sees an inner container scrolling
+      ["pointerdown", "keydown", "scroll", "wheel"].forEach(function (type) {
+        window.addEventListener(type, touched, { passive: true, capture: true });
+      });
+
+      document.addEventListener("visibilitychange", function () {
+        try {
+          if (document.visibilityState === "hidden") { finish(); } else { touched(); tick(); }
+        } catch (e) {}
+      });
+      window.addEventListener("pagehide", function () { try { finish(); } catch (e) {} });
+
+      var onRouteChange = function () { try { tick(); touched(); } catch (e) {} };
+      window.addEventListener("hashchange", onRouteChange);
+      window.addEventListener("popstate", onRouteChange);
+      ["pushState", "replaceState"].forEach(function (name) {
+        var original = history[name];
+        if (typeof original !== "function") { return; }
+        history[name] = function () {
+          var result = original.apply(this, arguments);
+          onRouteChange();
+          return result;
+        };
+      });
+
+      session = current();
+      if (pending.length) { checkpoint(); }
+    } catch (e) {}
+  };
+
+  try {
+    if (window.__mitraUsage) { return; }
+    window.__mitraUsage = 1;
+    if (document.prerendering) {
+      document.addEventListener("prerenderingchange", start, { once: true });
+    } else {
+      start();
+    }
+  } catch (e) {}
+})();
+</script><script>(function () {
+  if (window.parent === window) return;
+  var cfg = {"type":"mitra-preview-runtime-error","hostParam":"previewHost","sessionParams":["previewToken","previewRefreshToken","previewHost"],"cap":5,"deployId":"c4df89b3-87aa-4f8c-ab1c-ae88d46701c6","appId":"0bf017c0-6f04-4052-a2c0-93ea0d032e5d"};
+  var host = null;
+  try {
+    host = new URLSearchParams(window.location.hash.replace(/^#/, "")).get(cfg.hostParam);
+    if (host) host = new URL(host).origin;
+  } catch (e) {
+    return;
+  }
+  if (!host) return;
+  var sent = 0;
+
+  function text(value, max) {
+    if (value === undefined || value === null || value === "") return null;
+    var s = String(value);
+    if (s === "[object Object]") {
+      try { s = JSON.stringify(value); } catch (e) { /* keep the generic string */ }
+    }
+    return s.slice(0, max);
+  }
+
+  function pageHref() {
+    var base = window.location.href.split("#")[0];
+    var kept = window.location.hash.replace(/^#/, "").split("&").filter(function (part) {
+      var name = part.split("=")[0];
+      return part && cfg.sessionParams.indexOf(name) === -1;
+    });
+    return kept.length ? base + "#" + kept.join("&") : base;
+  }
+
+  function report(kind, message, source, line, stack) {
+    if (sent >= cfg.cap) return;
+    sent += 1;
+    try {
+      window.parent.postMessage({
+        type: cfg.type,
+        deployId: cfg.deployId,
+        appId: cfg.appId,
+        kind: kind,
+        message: text(message, 2000) || kind,
+        source: text(source, 500),
+        line: typeof line === "number" ? line : null,
+        stack: text(stack, 8000),
+        href: pageHref()
+      }, host);
+    } catch (e) { /* the parent went away or refused the message */ }
+  }
+
+  window.addEventListener("error", function (event) {
+    var error = event.error;
+    report("error", event.message || (error && error.message), event.filename, event.lineno, error && error.stack);
+  });
+  window.addEventListener("unhandledrejection", function (event) {
+    var reason = event.reason;
+    report("unhandledrejection", reason && reason.message ? reason.message : reason, null, null, reason && reason.stack);
+  });
+})();</script><script>window.__mitraEnv={"appId":"0bf017c0-6f04-4052-a2c0-93ea0d032e5d","deployId":"c4df89b3-87aa-4f8c-ab1c-ae88d46701c6","authPageUrl":"https://app.infusion.cloud/sdk-auth.html?brand=infusion"};</script>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23A16207%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%231E3A8A%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23g)%22%2F%3E%3Ctext%20x%3D%2232%22%20y%3D%2243%22%20text-anchor%3D%22middle%22%20font-family%3D%22Figtree%2C%20Arial%2C%20sans-serif%22%20font-size%3D%2234%22%20font-weight%3D%22700%22%20fill%3D%22%23fff%22%3EC%3C%2Ftext%3E%3C%2Fsvg%3E">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com/">
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+    <link href="index_files/css2_9PqX.css" rel="stylesheet">
+    <title>Contas a Pagar e Receber</title>
+    <script type="module" crossorigin="" src="index_files/index-vqwb9OEr_9PqX.js"></script>
+    <link rel="stylesheet" crossorigin="" href="index_files/index-pg4CjqW3_9PqX.css">
+  </head>
+  <body>
+    <div id="root"><div class="flex h-screen overflow-hidden" style="background-color: var(--color-bg);"><aside class="hidden h-full w-60 shrink-0 overflow-y-auto md:flex" style="background-color: var(--color-nav);"><div class="w-full"><div class="flex h-full flex-col p-4"><div class="mb-4 flex items-center gap-2 px-3"><span class="flex h-9 w-9 items-center justify-center rounded-md" style="background: linear-gradient(135deg, rgb(161, 98, 7), rgb(30, 58, 138)); color: rgb(255, 255, 255);"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wallet" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg></span><span class="text-base font-semibold" style="color: var(--color-text);">Contas</span></div><nav class="flex flex-1 flex-col gap-1"><a aria-current="page" class="flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium active" style="background-color: var(--color-primary-bg); color: var(--color-primary-text);" href="https://a1-0pfy56wtvm4nphy53zjzom3bx.infusion.cloud/" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-dashboard" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>Painel</a><a class="flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium" style="background-color: transparent; color: var(--color-nav-text);" href="https://a1-0pfy56wtvm4nphy53zjzom3bx.infusion.cloud/contas-a-pagar" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-arrow-up" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m16 12-4-4-4 4"></path><path d="M12 16V8"></path></svg>Contas a Pagar</a><a class="flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium" style="background-color: transparent; color: var(--color-nav-text);" href="https://a1-0pfy56wtvm4nphy53zjzom3bx.infusion.cloud/contas-a-receber" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-arrow-down" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v8"></path><path d="m8 12 4 4 4-4"></path></svg>Contas a Receber</a><a class="flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium" style="background-color: transparent; color: var(--color-nav-text);" href="https://a1-0pfy56wtvm4nphy53zjzom3bx.infusion.cloud/fornecedores" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-truck" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"></path><path d="M15 18H9"></path><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"></path><circle cx="17" cy="18" r="2"></circle><circle cx="7" cy="18" r="2"></circle></svg>Fornecedores</a><a class="flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium" style="background-color: transparent; color: var(--color-nav-text);" href="https://a1-0pfy56wtvm4nphy53zjzom3bx.infusion.cloud/clientes" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg>Clientes</a><a class="flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium" style="background-color: transparent; color: var(--color-nav-text);" href="https://a1-0pfy56wtvm4nphy53zjzom3bx.infusion.cloud/cadastros" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-tags" aria-hidden="true"><path d="M13.172 2a2 2 0 0 1 1.414.586l6.71 6.71a2.4 2.4 0 0 1 0 3.408l-4.592 4.592a2.4 2.4 0 0 1-3.408 0l-6.71-6.71A2 2 0 0 1 6 9.172V3a1 1 0 0 1 1-1z"></path><path d="M2 7v6.172a2 2 0 0 0 .586 1.414l6.71 6.71a2.4 2.4 0 0 0 3.191.193"></path><circle cx="10.5" cy="6.5" r=".5" fill="currentColor"></circle></svg>Cadastros</a><a class="flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium" style="background-color: transparent; color: var(--color-nav-text);" href="https://a1-0pfy56wtvm4nphy53zjzom3bx.infusion.cloud/relatorios" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>Relatórios</a><a class="flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium" style="background-color: transparent; color: var(--color-nav-text);" href="https://a1-0pfy56wtvm4nphy53zjzom3bx.infusion.cloud/backup" data-discover="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-database-backup" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 12a9 3 0 0 0 5 2.69"></path><path d="M21 9.3V5"></path><path d="M3 5v14a9 3 0 0 0 6.47 2.88"></path><path d="M12 12v4h4"></path><path d="M13 20a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L12 16"></path></svg>Backup</a></nav><button type="button" class="mt-4 flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium" style="color: var(--color-nav-text);"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-out" aria-hidden="true"><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path></svg>Sair</button></div></div></aside><main class="flex-1 overflow-y-auto"><header class="sticky top-0 z-30 flex h-14 items-center gap-3 px-4 md:hidden" style="background-color: var(--color-nav);"><button type="button" class="flex h-10 w-10 cursor-pointer items-center justify-center" aria-label="Menu" style="color: var(--color-text);"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-menu" aria-hidden="true"><path d="M4 5h16"></path><path d="M4 12h16"></path><path d="M4 19h16"></path></svg></button><span class="text-base font-semibold" style="color: var(--color-text);">Contas a Pagar e Receber</span></header><div class="p-4 md:p-6"><div><div class="mb-6 flex flex-wrap items-end gap-3"><div><h1 class="text-2xl font-semibold" style="color: var(--color-text);">Painel</h1><p class="text-sm" style="color: var(--color-text-secondary);">Receitas e despesas do ano</p></div><div class="ml-auto flex flex-wrap items-center gap-2"><div class="w-32"><div class="flex flex-col gap-1.5 "><div class="relative"><button type="button" role="combobox" aria-expanded="false" aria-haspopup="listbox" class="
+            w-full px-3 py-2 text-sm rounded-md border text-left
+            focus:outline-none focus:ring-2 focus:border-transparent
+            disabled:opacity-50 disabled:cursor-not-allowed
+            transition-all duration-200 flex items-center justify-between gap-2
+          " style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text); --tw-ring-color: var(--color-primary-light);"><span class="truncate">2026</span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-down shrink-0 transition-transform duration-200" aria-hidden="true" style="color: var(--color-text-secondary);"><path d="m6 9 6 6 6-6"></path></svg></button></div></div></div></div></div><div class="rounded-lg mb-6" style="background-color: var(--color-surface); box-shadow: var(--shadow-card);"><div class="px-5 pb-5 flex-1 flex flex-col p-5"><div class="flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bell-ring" aria-hidden="true" style="color: var(--color-warning);"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M22 8c0-2.3-.8-4.3-2-6"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path><path d="M4 2C2.8 3.7 2 5.7 2 8"></path></svg><h2 class="text-base font-semibold" style="color: var(--color-text);">Avisos de vencimento</h2></div><ul class="mt-3"><li class="border-t py-3" style="border-color: var(--color-border);"><a class="cursor-pointer" href="https://a1-0pfy56wtvm4nphy53zjzom3bx.infusion.cloud/contas-a-pagar" data-discover="true">1 conta(s) a pagar vencem nos próximos 7 dias, somando R$&nbsp;3.000,00.</a></li><li class="border-t py-3" style="border-color: var(--color-border);"><a class="cursor-pointer" href="https://a1-0pfy56wtvm4nphy53zjzom3bx.infusion.cloud/contas-a-receber" data-discover="true">1 conta(s) a receber vencem nos próximos 7 dias, somando R$&nbsp;1.500,00.</a></li><li class="border-t py-3" style="border-color: var(--color-border); color: var(--color-danger);"><a class="cursor-pointer" href="https://a1-0pfy56wtvm4nphy53zjzom3bx.infusion.cloud/contas-a-pagar" data-discover="true">2 conta(s) a pagar em atraso.</a></li><li class="border-t py-3" style="border-color: var(--color-border); color: var(--color-danger);"><a class="cursor-pointer" href="https://a1-0pfy56wtvm4nphy53zjzom3bx.infusion.cloud/contas-a-receber" data-discover="true">1 conta(s) a receber em atraso.</a></li></ul></div></div><div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4"><div class="rounded-lg " style="background-color: var(--color-surface); box-shadow: var(--shadow-card);"><div class="px-5 pb-5 flex-1 flex flex-col p-5"><div class="flex items-center gap-2" style="color: var(--color-text-secondary);"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trending-up" aria-hidden="true" style="color: var(--color-success);"><path d="M16 7h6v6"></path><path d="m22 7-8.5 8.5-5-5L2 17"></path></svg><span class="text-sm">Total de receitas</span></div><p class="mt-3 text-2xl font-semibold tabular-nums" style="color: var(--color-text);">R$&nbsp;92.580,00</p><p class="mt-1 text-meta" style="color: var(--color-text-secondary);">R$&nbsp;65.250,00 já recebido</p></div></div><div class="rounded-lg " style="background-color: var(--color-surface); box-shadow: var(--shadow-card);"><div class="px-5 pb-5 flex-1 flex flex-col p-5"><div class="flex items-center gap-2" style="color: var(--color-text-secondary);"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trending-down" aria-hidden="true" style="color: var(--color-danger);"><path d="M16 17h6v-6"></path><path d="m22 17-8.5-8.5-5 5L2 7"></path></svg><span class="text-sm">Total de despesas</span></div><p class="mt-3 text-2xl font-semibold tabular-nums" style="color: var(--color-text);">R$&nbsp;78.930,00</p><p class="mt-1 text-meta" style="color: var(--color-text-secondary);">R$&nbsp;57.375,00 já pago</p></div></div><div class="rounded-lg " style="background-color: var(--color-surface); box-shadow: var(--shadow-card);"><div class="px-5 pb-5 flex-1 flex flex-col p-5"><div class="flex items-center gap-2" style="color: var(--color-text-secondary);"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-scale" aria-hidden="true" style="color: var(--color-success);"><path d="M12 3v18"></path><path d="m19 8 3 8a5 5 0 0 1-6 0zV7"></path><path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1"></path><path d="m5 8 3 8a5 5 0 0 1-6 0zV7"></path><path d="M7 21h10"></path></svg><span class="text-sm">Saldo do ano</span></div><p class="mt-3 text-2xl font-semibold tabular-nums" style="color: var(--color-text);">R$&nbsp;13.650,00</p></div></div><div class="rounded-lg " style="background-color: var(--color-surface); box-shadow: var(--shadow-card);"><div class="px-5 pb-5 flex-1 flex flex-col p-5"><div class="flex items-center gap-2" style="color: var(--color-text-secondary);"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-triangle-alert" aria-hidden="true" style="color: var(--color-warning);"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg><span class="text-sm">Em atraso</span></div><p class="mt-3 text-2xl font-semibold tabular-nums" style="color: var(--color-text);">R$&nbsp;11.350,00</p><p class="mt-1 text-meta" style="color: var(--color-text-secondary);">R$&nbsp;7.300,00 a receber · R$&nbsp;4.050,00 a pagar</p></div></div></div><div class="mt-6"><div class="rounded-lg py-6 " style="background-color: var(--color-surface); box-shadow: var(--shadow-card);"><div class="mb-6 px-6 flex items-start justify-between"><div class="space-y-1.5"><div class="flex items-center gap-2"><h3 class="leading-none font-semibold" style="color: var(--color-text);">Receitas e despesas por mês — 2026</h3></div><p class="text-sm" style="color: var(--color-text-secondary);">Valores por data de vencimento</p></div></div><div class="px-6"><div><div class="recharts-responsive-container" style="width: 100%; height: 280px; min-width: 0px;"><div class="recharts-wrapper" style="position: relative; cursor: default; width: 100%; height: 100%; max-height: 280px; max-width: 1200px;"><svg class="recharts-surface" width="1200" height="280" style="width: 100%; height: 100%;" viewBox="0 0 1200 280"><title></title><desc></desc><defs><clipPath id="recharts1-clip"><rect x="50" y="8" height="208" width="1138"></rect></clipPath></defs><g class="recharts-cartesian-grid"><g class="recharts-cartesian-grid-horizontal"><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="1138" height="208" x1="50" y1="216" x2="1188" y2="216"></line><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="1138" height="208" x1="50" y1="164" x2="1188" y2="164"></line><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="1138" height="208" x1="50" y1="112" x2="1188" y2="112"></line><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="1138" height="208" x1="50" y1="60" x2="1188" y2="60"></line><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="1138" height="208" x1="50" y1="8" x2="1188" y2="8"></line></g></g><g class="recharts-layer recharts-cartesian-axis recharts-xAxis xAxis"><g class="recharts-cartesian-axis-ticks"><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="1138" height="30" font-size="12" stroke="none" x="97.41666666666666" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="97.41666666666666" dy="0.71em">Jan</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="1138" height="30" font-size="12" stroke="none" x="192.24999999999997" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="192.24999999999997" dy="0.71em">Fev</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="1138" height="30" font-size="12" stroke="none" x="287.0833333333333" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="287.0833333333333" dy="0.71em">Mar</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="1138" height="30" font-size="12" stroke="none" x="381.9166666666667" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="381.9166666666667" dy="0.71em">Abr</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="1138" height="30" font-size="12" stroke="none" x="476.75" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="476.75" dy="0.71em">Mai</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="1138" height="30" font-size="12" stroke="none" x="571.5833333333333" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="571.5833333333333" dy="0.71em">Jun</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="1138" height="30" font-size="12" stroke="none" x="666.4166666666666" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="666.4166666666666" dy="0.71em">Jul</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="1138" height="30" font-size="12" stroke="none" x="761.2499999999999" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="761.2499999999999" dy="0.71em">Ago</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="1138" height="30" font-size="12" stroke="none" x="856.0833333333333" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="856.0833333333333" dy="0.71em">Set</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="1138" height="30" font-size="12" stroke="none" x="950.9166666666666" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="950.9166666666666" dy="0.71em">Out</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="1138" height="30" font-size="12" stroke="none" x="1045.75" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="1045.75" dy="0.71em">Nov</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="1138" height="30" font-size="12" stroke="none" x="1140.5833333333333" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="1140.5833333333333" dy="0.71em">Dez</tspan></text></g></g></g><g class="recharts-layer recharts-cartesian-axis recharts-yAxis yAxis"><g class="recharts-cartesian-axis-ticks"><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="216" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">0</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="164" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">3k</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="112" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">5k</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="60" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">8k</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="10.5" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">10k</tspan></text></g></g></g><g class="recharts-layer recharts-bar"><g class="recharts-layer recharts-bar-rectangles"><g class="recharts-layer"><g class="recharts-layer recharts-bar-rectangle"><path x="59.483333333333334" y="90.99199999999999" width="35" height="125.00800000000001" radius="8,8,0,0" name="Jan" fill="var(--color-success)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M59.483333333333334,98.99199999999999A 8,8,0,0,1,67.48333333333333,90.99199999999999L 86.48333333333333,90.99199999999999A 8,8,0,0,1,
+        94.48333333333333,98.99199999999999L 94.48333333333333,216L 59.483333333333334,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="154.31666666666663" y="84.54399999999998" width="35" height="131.45600000000002" radius="8,8,0,0" name="Fev" fill="var(--color-success)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M154.31666666666663,92.54399999999998A 8,8,0,0,1,162.31666666666663,84.54399999999998L 181.31666666666663,84.54399999999998A 8,8,0,0,1,
+        189.31666666666663,92.54399999999998L 189.31666666666663,216L 154.31666666666663,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="249.14999999999998" y="78.096" width="35" height="137.904" radius="8,8,0,0" name="Mar" fill="var(--color-success)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M249.14999999999998,86.096A 8,8,0,0,1,257.15,78.096L 276.15,78.096A 8,8,0,0,1,
+        284.15,86.096L 284.15,216L 249.14999999999998,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="343.98333333333335" y="71.648" width="35" height="144.352" radius="8,8,0,0" name="Abr" fill="var(--color-success)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M343.98333333333335,79.648A 8,8,0,0,1,351.98333333333335,71.648L 370.98333333333335,71.648A 8,8,0,0,1,
+        378.98333333333335,79.648L 378.98333333333335,216L 343.98333333333335,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="438.81666666666666" y="65.19999999999999" width="35" height="150.8" radius="8,8,0,0" name="Mai" fill="var(--color-success)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M438.81666666666666,73.19999999999999A 8,8,0,0,1,446.81666666666666,65.19999999999999L 465.81666666666666,65.19999999999999A 8,8,0,0,1,
+        473.81666666666666,73.19999999999999L 473.81666666666666,216L 438.81666666666666,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="533.65" y="58.75200000000001" width="35" height="157.248" radius="8,8,0,0" name="Jun" fill="var(--color-success)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M533.65,66.75200000000001A 8,8,0,0,1,541.65,58.75200000000001L 560.65,58.75200000000001A 8,8,0,0,1,
+        568.65,66.75200000000001L 568.65,216L 533.65,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="628.4833333333333" y="52.304" width="35" height="163.696" radius="8,8,0,0" name="Jul" fill="var(--color-success)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M628.4833333333333,60.304A 8,8,0,0,1,636.4833333333333,52.304L 655.4833333333333,52.304A 8,8,0,0,1,
+        663.4833333333333,60.304L 663.4833333333333,216L 628.4833333333333,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="723.3166666666666" y="45.855999999999995" width="35" height="170.144" radius="8,8,0,0" name="Ago" fill="var(--color-success)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M723.3166666666666,53.855999999999995A 8,8,0,0,1,731.3166666666666,45.855999999999995L 750.3166666666666,45.855999999999995A 8,8,0,0,1,
+        758.3166666666666,53.855999999999995L 758.3166666666666,216L 723.3166666666666,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="818.15" y="39.408000000000015" width="35" height="176.59199999999998" radius="8,8,0,0" name="Set" fill="var(--color-success)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M818.15,47.408000000000015A 8,8,0,0,1,826.15,39.408000000000015L 845.15,39.408000000000015A 8,8,0,0,1,
+        853.15,47.408000000000015L 853.15,216L 818.15,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="912.9833333333333" y="32.96000000000001" width="35" height="183.04" radius="8,8,0,0" name="Out" fill="var(--color-success)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M912.9833333333333,40.96000000000001A 8,8,0,0,1,920.9833333333333,32.96000000000001L 939.9833333333333,32.96000000000001A 8,8,0,0,1,
+        947.9833333333333,40.96000000000001L 947.9833333333333,216L 912.9833333333333,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="1007.8166666666666" y="26.512" width="35" height="189.488" radius="8,8,0,0" name="Nov" fill="var(--color-success)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M1007.8166666666666,34.512A 8,8,0,0,1,1015.8166666666666,26.512L 1034.8166666666666,26.512A 8,8,0,0,1,
+        1042.8166666666666,34.512L 1042.8166666666666,216L 1007.8166666666666,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="1102.6499999999999" y="20.06400000000002" width="35" height="195.93599999999998" radius="8,8,0,0" name="Dez" fill="var(--color-success)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M1102.6499999999999,28.06400000000002A 8,8,0,0,1,1110.6499999999999,20.06400000000002L 1129.6499999999999,20.06400000000002A 8,8,0,0,1,
+        1137.6499999999999,28.06400000000002L 1137.6499999999999,216L 1102.6499999999999,216Z"></path></g></g></g><g class="recharts-layer"></g></g><g class="recharts-layer recharts-bar"><g class="recharts-layer recharts-bar-rectangles"><g class="recharts-layer"><g class="recharts-layer recharts-bar-rectangle"><path x="98.48333333333333" y="94.632" width="35" height="121.368" radius="8,8,0,0" name="Jan" fill="var(--color-danger)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M98.48333333333333,102.632A 8,8,0,0,1,106.48333333333333,94.632L 125.48333333333335,94.632A 8,8,0,0,1,
+        133.48333333333335,102.632L 133.48333333333335,216L 98.48333333333333,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="193.31666666666666" y="91.824" width="35" height="124.176" radius="8,8,0,0" name="Fev" fill="var(--color-danger)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M193.31666666666666,99.824A 8,8,0,0,1,201.31666666666666,91.824L 220.31666666666666,91.824A 8,8,0,0,1,
+        228.31666666666666,99.824L 228.31666666666666,216L 193.31666666666666,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="288.15" y="89.01599999999999" width="35" height="126.98400000000001" radius="8,8,0,0" name="Mar" fill="var(--color-danger)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M288.15,97.01599999999999A 8,8,0,0,1,296.15,89.01599999999999L 315.15,89.01599999999999A 8,8,0,0,1,
+        323.15,97.01599999999999L 323.15,216L 288.15,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="382.98333333333335" y="86.208" width="35" height="129.792" radius="8,8,0,0" name="Abr" fill="var(--color-danger)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M382.98333333333335,94.208A 8,8,0,0,1,390.98333333333335,86.208L 409.98333333333335,86.208A 8,8,0,0,1,
+        417.98333333333335,94.208L 417.98333333333335,216L 382.98333333333335,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="477.81666666666666" y="83.4" width="35" height="132.6" radius="8,8,0,0" name="Mai" fill="var(--color-danger)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M477.81666666666666,91.4A 8,8,0,0,1,485.81666666666666,83.4L 504.8166666666666,83.4A 8,8,0,0,1,
+        512.8166666666666,91.4L 512.8166666666666,216L 477.81666666666666,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="572.65" y="80.59199999999998" width="35" height="135.40800000000002" radius="8,8,0,0" name="Jun" fill="var(--color-danger)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M572.65,88.59199999999998A 8,8,0,0,1,580.65,80.59199999999998L 599.65,80.59199999999998A 8,8,0,0,1,
+        607.65,88.59199999999998L 607.65,216L 572.65,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="667.4833333333333" y="77.78399999999999" width="35" height="138.216" radius="8,8,0,0" name="Jul" fill="var(--color-danger)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M667.4833333333333,85.78399999999999A 8,8,0,0,1,675.4833333333333,77.78399999999999L 694.4833333333333,77.78399999999999A 8,8,0,0,1,
+        702.4833333333333,85.78399999999999L 702.4833333333333,216L 667.4833333333333,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="762.3166666666666" y="74.976" width="35" height="141.024" radius="8,8,0,0" name="Ago" fill="var(--color-danger)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M762.3166666666666,82.976A 8,8,0,0,1,770.3166666666666,74.976L 789.3166666666666,74.976A 8,8,0,0,1,
+        797.3166666666666,82.976L 797.3166666666666,216L 762.3166666666666,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="857.15" y="72.168" width="35" height="143.832" radius="8,8,0,0" name="Set" fill="var(--color-danger)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M857.15,80.168A 8,8,0,0,1,865.15,72.168L 884.15,72.168A 8,8,0,0,1,
+        892.15,80.168L 892.15,216L 857.15,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="951.9833333333333" y="69.36000000000001" width="35" height="146.64" radius="8,8,0,0" name="Out" fill="var(--color-danger)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M951.9833333333333,77.36000000000001A 8,8,0,0,1,959.9833333333333,69.36000000000001L 978.9833333333333,69.36000000000001A 8,8,0,0,1,
+        986.9833333333333,77.36000000000001L 986.9833333333333,216L 951.9833333333333,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="1046.8166666666666" y="66.55199999999999" width="35" height="149.448" radius="8,8,0,0" name="Nov" fill="var(--color-danger)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M1046.8166666666666,74.55199999999999A 8,8,0,0,1,1054.8166666666666,66.55199999999999L 1073.8166666666666,66.55199999999999A 8,8,0,0,1,
+        1081.8166666666666,74.55199999999999L 1081.8166666666666,216L 1046.8166666666666,216Z"></path></g><g class="recharts-layer recharts-bar-rectangle"><path x="1141.6499999999999" y="63.744" width="35" height="152.256" radius="8,8,0,0" name="Dez" fill="var(--color-danger)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M1141.6499999999999,71.744A 8,8,0,0,1,1149.6499999999999,63.744L 1168.6499999999999,63.744A 8,8,0,0,1,
+        1176.6499999999999,71.744L 1176.6499999999999,216L 1141.6499999999999,216Z"></path></g></g></g><g class="recharts-layer"></g></g></svg><div class="recharts-legend-wrapper" style="position: absolute; width: 1188px; height: auto; left: 0px; bottom: 0px;"><div class="pt-3"><div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-sm rounded-lg" style="color: var(--color-text-secondary); max-height: 22.8px; overflow-y: hidden; background-color: transparent; border: 1px solid transparent; padding: 0px; transition: max-height 0.2s, background-color 0.2s, padding 0.2s, border-color 0.2s;"><div class="flex items-center gap-1.5"><div class="h-2.5 w-2.5 shrink-0 rounded-[2px]" style="background-color: var(--color-success);"></div><span>Receitas</span></div><div class="flex items-center gap-1.5"><div class="h-2.5 w-2.5 shrink-0 rounded-[2px]" style="background-color: var(--color-danger);"></div><span>Despesas</span></div></div></div></div><div tabindex="-1" class="recharts-tooltip-wrapper" style="visibility: hidden; pointer-events: none; position: absolute; top: 0px; left: 0px;"></div></div></div></div></div></div></div><div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2"><div class="rounded-lg py-6 " style="background-color: var(--color-surface); box-shadow: var(--shadow-card);"><div class="mb-6 px-6 flex items-start justify-between"><div class="space-y-1.5"><div class="flex items-center gap-2"><h3 class="leading-none font-semibold" style="color: var(--color-text);">Receitas por categoria — 2026</h3></div><p class="text-sm" style="color: var(--color-text-secondary);">Valores por data de vencimento</p></div></div><div class="px-6"><div><div class="recharts-responsive-container" style="width: 100%; height: 280px; min-width: 0px;"><div class="recharts-wrapper" style="position: relative; cursor: default; width: 100%; height: 100%; max-height: 280px; max-width: 564px;"><svg class="recharts-surface" width="564" height="280" style="width: 100%; height: 100%;" viewBox="0 0 564 280"><title></title><desc></desc><defs><clipPath id="recharts6-clip"><rect x="50" y="8" height="208" width="502"></rect></clipPath></defs><g class="recharts-cartesian-grid"><g class="recharts-cartesian-grid-horizontal"><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="502" height="208" x1="50" y1="216" x2="552" y2="216"></line><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="502" height="208" x1="50" y1="164" x2="552" y2="164"></line><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="502" height="208" x1="50" y1="112" x2="552" y2="112"></line><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="502" height="208" x1="50" y1="60" x2="552" y2="60"></line><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="502" height="208" x1="50" y1="8" x2="552" y2="8"></line></g></g><g class="recharts-layer recharts-cartesian-axis recharts-xAxis xAxis"><g class="recharts-cartesian-axis-ticks"><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="502" height="30" font-size="12" stroke="none" x="301" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="301" dy="0.71em">Sem categoria</tspan></text></g></g></g><g class="recharts-layer recharts-cartesian-axis recharts-yAxis yAxis"><g class="recharts-cartesian-axis-ticks"><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="216" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">0</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="164" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">25k</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="112" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">50k</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="60" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">75k</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="10.5" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">100k</tspan></text></g></g></g><g class="recharts-layer recharts-bar"><g class="recharts-layer recharts-bar-rectangles"><g class="recharts-layer"><g class="recharts-layer recharts-bar-rectangle"><path x="100.2" y="23.433600000000013" width="401" height="192.5664" radius="8,8,0,0" name="Sem categoria" fill="var(--color-success)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M100.2,31.433600000000013A 8,8,0,0,1,108.2,23.433600000000013L 493.2,23.433600000000013A 8,8,0,0,1,
+        501.2,31.433600000000013L 501.2,216L 100.2,216Z"></path></g></g></g><g class="recharts-layer"></g></g></svg><div class="recharts-legend-wrapper" style="position: absolute; width: 552px; height: auto; left: 0px; bottom: 0px;"><div class="pt-3"><div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-sm rounded-lg" style="color: var(--color-text-secondary); max-height: 22.8px; overflow-y: hidden; background-color: transparent; border: 1px solid transparent; padding: 0px; transition: max-height 0.2s, background-color 0.2s, padding 0.2s, border-color 0.2s;"><div class="flex items-center gap-1.5"><div class="h-2.5 w-2.5 shrink-0 rounded-[2px]" style="background-color: var(--color-success);"></div><span>Receitas</span></div></div></div></div><div tabindex="-1" class="recharts-tooltip-wrapper" style="visibility: hidden; pointer-events: none; position: absolute; top: 0px; left: 0px;"></div></div></div></div></div></div><div class="rounded-lg py-6 " style="background-color: var(--color-surface); box-shadow: var(--shadow-card);"><div class="mb-6 px-6 flex items-start justify-between"><div class="space-y-1.5"><div class="flex items-center gap-2"><h3 class="leading-none font-semibold" style="color: var(--color-text);">Despesas por categoria — 2026</h3></div><p class="text-sm" style="color: var(--color-text-secondary);">Valores por data de vencimento</p></div></div><div class="px-6"><div><div class="recharts-responsive-container" style="width: 100%; height: 280px; min-width: 0px;"><div class="recharts-wrapper" style="position: relative; cursor: default; width: 100%; height: 100%; max-height: 280px; max-width: 564px;"><svg class="recharts-surface" width="564" height="280" style="width: 100%; height: 100%;" viewBox="0 0 564 280"><title></title><desc></desc><defs><clipPath id="recharts9-clip"><rect x="50" y="8" height="208" width="502"></rect></clipPath></defs><g class="recharts-cartesian-grid"><g class="recharts-cartesian-grid-horizontal"><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="502" height="208" x1="50" y1="216" x2="552" y2="216"></line><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="502" height="208" x1="50" y1="164" x2="552" y2="164"></line><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="502" height="208" x1="50" y1="112" x2="552" y2="112"></line><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="502" height="208" x1="50" y1="60" x2="552" y2="60"></line><line stroke="var(--color-border)" stroke-opacity="0.5" fill="none" x="50" y="8" width="502" height="208" x1="50" y1="8" x2="552" y2="8"></line></g></g><g class="recharts-layer recharts-cartesian-axis recharts-xAxis xAxis"><g class="recharts-cartesian-axis-ticks"><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="bottom" width="502" height="30" font-size="12" stroke="none" x="301" y="232" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="middle" fill="#666"><tspan x="301" dy="0.71em">Sem categoria</tspan></text></g></g></g><g class="recharts-layer recharts-cartesian-axis recharts-yAxis yAxis"><g class="recharts-cartesian-axis-ticks"><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="216" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">0</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="164" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">20k</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="112" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">40k</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="60" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">60k</tspan></text></g><g class="recharts-layer recharts-cartesian-axis-tick"><text orientation="left" width="50" height="208" font-size="12" stroke="none" x="34" y="10.5" class="recharts-text recharts-cartesian-axis-tick-value" text-anchor="end" fill="#666"><tspan x="34" dy="0.355em">80k</tspan></text></g></g></g><g class="recharts-layer recharts-bar"><g class="recharts-layer recharts-bar-rectangles"><g class="recharts-layer"><g class="recharts-layer recharts-bar-rectangle"><path x="100.2" y="10.78200000000001" width="401" height="205.218" radius="8,8,0,0" name="Sem categoria" fill="var(--color-danger)" style="outline: none; stroke: none;" class="recharts-rectangle" d="M100.2,18.78200000000001A 8,8,0,0,1,108.2,10.78200000000001L 493.2,10.78200000000001A 8,8,0,0,1,
+        501.2,18.78200000000001L 501.2,216L 100.2,216Z"></path></g></g></g><g class="recharts-layer"></g></g></svg><div class="recharts-legend-wrapper" style="position: absolute; width: 552px; height: auto; left: 0px; bottom: 0px;"><div class="pt-3"><div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-sm rounded-lg" style="color: var(--color-text-secondary); max-height: 22.8px; overflow-y: hidden; background-color: transparent; border: 1px solid transparent; padding: 0px; transition: max-height 0.2s, background-color 0.2s, padding 0.2s, border-color 0.2s;"><div class="flex items-center gap-1.5"><div class="h-2.5 w-2.5 shrink-0 rounded-[2px]" style="background-color: var(--color-danger);"></div><span>Despesas</span></div></div></div></div><div tabindex="-1" class="recharts-tooltip-wrapper" style="visibility: hidden; pointer-events: none; position: absolute; top: 0px; left: 0px;"></div></div></div></div></div></div></div></div></div></main><div class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div></div></div>
+  
+
+<span id="recharts_measurement_span" aria-hidden="true" style="position: absolute; top: -20000px; left: 0px; padding: 0px; margin: 0px; border: medium; white-space: pre;">20k</span></body></html>
