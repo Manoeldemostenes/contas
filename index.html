@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Financeiro – Contas a Pagar e Receber</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{color-scheme:dark;--bg:#000;--bg2:#0b0f0c;--card:#101713;--line:#1d2b22;--tx:#e8f1ea;--mu:#8ea397;--g:#22e07a;--g2:#14a85a;--red:#ff5d5d;--am:#f5c542;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 Sora,system-ui,sans-serif;display:flex;min-height:100vh}
+nav{width:232px;background:var(--bg2);border-right:1px solid var(--line);padding:20px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+.logo{font-weight:700;font-size:17px;padding:0 10px 18px;color:var(--g)}
+.logo small{display:block;color:var(--mu);font-weight:400;font-size:12px}
+nav button{background:none;border:0;color:var(--mu);text-align:left;padding:10px 12px;border-radius:8px;font:inherit;cursor:pointer}
+nav button:hover{color:var(--tx);background:#111a14}
+nav button.on{background:var(--g);color:#001a0b;font-weight:600}
+main{flex:1;padding:28px;min-width:0;max-width:1200px}
+h1{font-size:22px;margin:0 0 4px}.sub{color:var(--mu);margin:0 0 22px}
+h2{font-size:15px;margin:26px 0 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.k{color:var(--mu);font-size:12px}.v{font-size:22px;font-weight:700;margin-top:4px}
+.pos{color:var(--g)}.neg{color:var(--red)}
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+input,select,textarea{background:#060a07;border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:9px 10px;font:inherit;min-width:0}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--g);outline-offset:1px}
+.btn{background:var(--g);color:#001a0b;border:0;border-radius:8px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer}
+.btn.o{background:none;color:var(--g);border:1px solid var(--g2)}
+.btn.s{padding:4px 9px;font-size:12px}.btn.d{background:none;color:var(--red);border:1px solid #4a2020}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:collapse;min-width:720px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--mu);font-weight:400;font-size:12px;background:var(--bg2)}
+tr:last-child td{border-bottom:0}td.n,th.n{text-align:right}
+.tag{padding:2px 8px;border-radius:99px;font-size:12px;border:1px solid}
+.t-aberto{color:var(--am);border-color:#5a4b16}.t-pago{color:var(--g);border-color:var(--g2)}.t-vencido{color:var(--red);border-color:#5a2020}.t-parcial{color:#6cc4ff;border-color:#1f4a66}.t-cancelado{color:var(--mu);border-color:var(--line)}
+dialog{background:var(--card);color:var(--tx);border:1px solid var(--g2);border-radius:12px;padding:22px;width:min(460px,92vw)}
+dialog::backdrop{background:#000b}
+.f{display:grid;gap:10px;margin:14px 0}.f label{display:grid;gap:4px;color:var(--mu);font-size:12px}.f .r{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.empty{padding:28px;text-align:center;color:var(--mu)}
+.alert{border-left:3px solid var(--red);background:#1a0c0c;padding:10px 14px;border-radius:6px;margin-bottom:14px}
+svg text{fill:var(--mu);font:11px Sora,sans-serif}
+#login{position:fixed;inset:0;z-index:50;background:radial-gradient(circle at 30% 20%,#0d2216,#000 65%);display:grid;place-items:center;padding:16px;overflow:auto}#login[hidden]{display:none}
+.lb{width:min(380px,100%);background:var(--card);border:1px solid var(--g2);border-radius:14px;padding:26px}.err{color:var(--red);min-height:20px;font-size:12px;margin:0 0 8px}
+@media(max-width:760px){body{flex-direction:column}nav{width:100%;height:auto;position:static;flex-direction:row;overflow-x:auto;padding:10px}.logo{display:none}nav button{white-space:nowrap}main{padding:16px}}
+</style>
+</head>
+<body>
+<nav id="nav"></nav>
+<main id="app"></main>
+<dialog id="dlg"></dialog>
+<div id="login" hidden></div>
+<script>
+const KEY='cpr_financeiro_v1';
+const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
+let S=load(),view='dash',flt={q:'',st:''};
+function load(){try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}return{parties:[],titles:[],cfg:{aprov:false},bk:null}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+const R=v=>(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const iso=d=>d.toISOString().slice(0,10),today=()=>iso(new Date());
+const D=s=>s?s.split('-').reverse().join('/'):'–';
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const addM=(s,n)=>{const d=new Date(s+'T12:00:00');const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const l=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,l));return iso(d)};
+const aberto=t=>t.canc?0:Math.max(0,+(t.valor-t.pago).toFixed(2));
+const status=t=>t.canc?'cancelado':aberto(t)<=0?'pago':t.venc<today()?'vencido':t.pago>0?'parcial':'aberto';
+const pname=id=>(S.parties.find(p=>p.id==id)||{}).nome||'–';
+const sum=(a,f)=>a.reduce((x,t)=>x+f(t),0);
+const MENU=[['dash','Painel'],['pagar','Contas a pagar'],['receber','Contas a receber'],['resumo','Resumo de pagamento'],['resumor','Resumo de recebimento'],['fluxo','Fluxo de caixa'],['rel','Relatórios e aging'],['cad','Clientes e fornecedores'],['bk','Backup']];
+function nav(){$('#nav').innerHTML='<div class="logo">Financeiro<small>Pagar e receber</small></div>'+MENU.map(([k,n])=>`<button class="${k==view?'on':''}" onclick="go('${k}')">${n}</button>`).join('')+`<button style="margin-top:auto" onclick="sair()">Sair (${esc(sess)})</button>`}
+function go(v){view=v;flt={q:'',st:''};render()}
+function render(){nav();const m={dash,pagar:()=>lista('pagar'),receber:()=>lista('receber'),fluxo,rel,cad,bk,resumo,resumor}[view];$('#app').innerHTML=m();window.scrollTo(0,0)}
+const head=(t,s)=>`<h1>${t}</h1><p class="sub">${s}</p>`;
+const kpi=(k,v,c='')=>`<div class="card"><div class="k">${k}</div><div class="v ${c}">${v}</div></div>`;
+
+/* PAINEL */
+function dash(){
+ const T=S.titles.filter(t=>!t.canc),P=T.filter(t=>t.tipo=='pagar'),Rc=T.filter(t=>t.tipo=='receber'),h=today();
+ const ap=sum(P,aberto),ar=sum(Rc,aberto),vp=sum(P.filter(t=>t.venc<h),aberto),vr=sum(Rc.filter(t=>t.venc<h),aberto);
+ const lim=iso(new Date(Date.now()+7*864e5));
+ const prox=T.filter(t=>aberto(t)>0&&t.venc>=h&&t.venc<=lim).sort((a,b)=>a.venc<b.venc?-1:1);
+ const al=(vp+vr>0?`<div class="alert">Atenção: ${R(vp)} em contas a pagar vencidas e ${R(vr)} em recebimentos em atraso.</div>`:'');
+ const ms=[];for(let i=0;i<6;i++)ms.push(addM(h.slice(0,8)+'01',i).slice(0,7));
+ const dt=ms.map(m=>[sum(P.filter(t=>t.venc.startsWith(m)),aberto),sum(Rc.filter(t=>t.venc.startsWith(m)),aberto)]);
+ const mx=Math.max(1,...dt.flat()),CC=['#f5c542','#22c55e','#8b5cf6','#ef4444','#1e3a8a','#38bdf8','#9ca3af','#000000','#f97316','#d946ef','#f5e6c8','#c8a27a'];
+ const bars=dt.map((d,i)=>{const x=20+i*88,hp=d[0]/mx*130,hr=d[1]/mx*130;return `<rect x="${x}" y="${150-hr}" width="30" height="${hr}" fill="${CC[i*2]}" stroke="#4a5f52" rx="3"/><rect x="${x+34}" y="${150-hp}" width="30" height="${hp}" fill="${CC[i*2+1]}" stroke="#4a5f52" rx="3"/><text x="${x+10}" y="162">R</text><text x="${x+44}" y="162">P</text><text x="${x}" y="177">${ms[i].slice(5)}/${ms[i].slice(2,4)}</text>`}).join('');
+ return head('Painel','Visão geral do que entra e sai.')+al+`<div class="grid">${kpi('A receber em aberto',R(ar),'pos')}${kpi('A pagar em aberto',R(ap),'neg')}${kpi('Saldo projetado',R(ar-ap),ar-ap>=0?'pos':'neg')}${kpi('Vencido (pagar / receber)',R(vp)+' / '+R(vr))}</div>
+ <h2>Próximos 6 meses (R = receber, P = pagar)</h2><div class="card"><svg viewBox="0 0 540 184" width="100%" role="img" aria-label="Gráfico de vencimentos por mês">${bars}</svg></div>
+ <h2>Vencem nos próximos 7 dias</h2>`+(prox.length?tbl(prox,true):'<div class="card empty">Nenhum vencimento nos próximos 7 dias.</div>');
+}
+
+/* LISTAS */
+function tbl(L,ro){return `<div class="tw"><table><tr><th>Vencimento</th><th>Descrição</th><th>${ro?'Tipo / ':''}Parte</th><th>Categoria</th><th class="n">Valor</th><th class="n">Em aberto</th><th>Situação</th>${ro?'':'<th></th>'}</tr>`+L.map(t=>{const s=status(t),pg=t.tipo=='pagar',need=pg&&S.cfg.aprov&&!t.aprov;return `<tr><td>${D(t.venc)}</td><td>${esc(t.desc)}${t.nf?` <span class="k">NF ${esc(t.nf)}</span>`:''}</td><td>${ro?(pg?'Pagar · ':'Receber · '):''}${esc(pname(t.pid))}</td><td>${esc(t.cat||'–')}</td><td class="n">${R(t.valor)}</td><td class="n">${R(aberto(t))}</td><td><span class="tag t-${s}">${s}${need&&s!='pago'&&s!='cancelado'?' · sem aprovação':''}</span></td>${ro?'':`<td>${s=='cancelado'?'':`${aberto(t)>0?(need?`<button class="btn s o" onclick="aprovar('${t.id}')">Aprovar</button> `:`<button class="btn s" onclick="baixa('${t.id}')">${pg?'Pagar':'Receber'}</button> `):''}<button class="btn s d" onclick="cancelar('${t.id}')">Cancelar</button>`} <button class="btn s o" onclick="hist('${t.id}')">Histórico</button> <button class="btn s o" onclick="recibo('${t.id}')">Recibo</button></td>`}</tr>`}).join('')+'</table></div>'}
+function lista(tp){
+ const pg=tp=='pagar';let L=S.titles.filter(t=>t.tipo==tp);
+ if(flt.q){const q=flt.q.toLowerCase();L=L.filter(t=>(t.desc+pname(t.pid)+(t.cat||'')+(t.nf||'')).toLowerCase().includes(q))}
+ if(flt.st)L=L.filter(t=>status(t)==flt.st);
+ L.sort((a,b)=>a.venc<b.venc?-1:1);
+ const tot=sum(L.filter(t=>!t.canc),aberto);
+ return head(pg?'Contas a pagar':'Contas a receber',pg?'Compromissos com fornecedores, impostos e despesas fixas.':'Valores a receber de clientes, com controle de atraso.')+
+ `<div class="bar"><input id="q" placeholder="Buscar descrição, parte, categoria ou NF" value="${esc(flt.q)}" oninput="flt.q=this.value;relist('${tp}')" style="flex:1;min-width:200px"><select onchange="flt.st=this.value;render()">${['','aberto','vencido','parcial','pago','cancelado'].map(s=>`<option value="${s}" ${flt.st==s?'selected':''}>${s?s[0].toUpperCase()+s.slice(1):'Todas as situações'}</option>`).join('')}</select><button class="btn" onclick="novo('${tp}')">Novo lançamento</button></div>
+ <div id="lst">${L.length?tbl(L):`<div class="card empty">Nenhum lançamento por aqui. Use “Novo lançamento” para começar.</div>`}</div><p class="k">Em aberto na lista: <b>${R(tot)}</b></p>`}
+function relist(tp){const q=$('#q'),p=q.selectionStart;render();const n=$('#q');n.focus();n.setSelectionRange(p,p)}
+
+/* LANÇAMENTOS */
+function opt(tp){const ty=tp=='pagar'?'fornecedor':'cliente';return S.parties.filter(p=>p.tipo==ty).map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join('')}
+function novo(tp){
+ const ty=tp=='pagar'?'fornecedor':'cliente',o=opt(tp);
+ if(!o){alert(`Cadastre primeiro um ${ty} em “Clientes e fornecedores”.`);return go('cad')}
+ const cats=[...new Set(S.titles.map(t=>t.cat).filter(Boolean))];
+ dlg(`<h1>Novo lançamento (${tp=='pagar'?'a pagar':'a receber'})</h1><div class="f">
+ <label>Descrição<input id="d"></label>
+ <div class="r"><label>${ty[0].toUpperCase()+ty.slice(1)}<select id="p">${o}</select></label><label>Categoria<input id="c" list="cl"><datalist id="cl">${cats.map(c=>`<option>${esc(c)}`).join('')}</datalist></label></div>
+ <div class="r"><label>Valor (R$)<input id="v" type="number" step="0.01" min="0"></label><label>Primeiro vencimento<input id="e" type="date" value="${today()}"></label></div>
+ <div class="r"><label>Repetição<select id="m"><option value="u">Única</option><option value="p">Parcelado (divide o valor)</option><option value="r">Recorrente (repete o valor)</option></select></label><label>Quantidade<input id="n" type="number" min="1" max="60" value="1"></label></div>
+ <div class="r"><label>Forma<select id="f">${['PIX','Boleto','Transferência','Cartão','Dinheiro'].map(x=>`<option>${x}</option>`).join('')}</select></label><label>Nota fiscal / documento<input id="nf"></label></div></div>
+ <div class="bar"><button class="btn" onclick="salvar('${tp}')">Salvar lançamento</button><button class="btn o" onclick="$('#dlg').close()">Cancelar</button></div>`)}
+function salvar(tp){
+ const d=$('#d').value.trim(),v=parseFloat($('#v').value),e=$('#e').value,n=Math.max(1,parseInt($('#n').value)||1),m=$('#m').value;
+ if(!d||!(v>0)||!e){alert('Preencha descrição, valor maior que zero e vencimento.');return}
+ const cnt=m=='u'?1:n,val=m=='p'?v/cnt:v;
+ for(let i=0;i<cnt;i++){const vv=m=='p'&&i==cnt-1?+(v-+(val.toFixed(2))*(cnt-1)).toFixed(2):+val.toFixed(2);
+  S.titles.push({id:uid(),tipo:tp,desc:cnt>1?`${d} (${i+1}/${cnt})`:d,pid:$('#p').value,cat:$('#c').value.trim(),venc:addM(e,i),valor:vv,pago:0,forma:$('#f').value,nf:$('#nf').value.trim(),aprov:false,canc:false,hist:[],criado:today()})}
+ save();$('#dlg').close();render()}
+function dlg(h){const d=$('#dlg');d.style.width='';d.innerHTML=h;d.showModal()}
+function aprovar(id){const t=S.titles.find(x=>x.id==id);t.aprov=true;t.aprovPor=sess;t.hist.push({k:'Aprovado',d:today(),por:sess});save();render()}
+function baixa(id){
+ const t=S.titles.find(x=>x.id==id),pg=t.tipo=='pagar';
+ dlg(`<h1>${pg?'Registrar pagamento':'Registrar recebimento'}</h1><p class="sub">${esc(t.desc)} · em aberto ${R(aberto(t))}</p><div class="f">
+ <div class="r"><label>Valor ${pg?'pago':'recebido'} (R$)<input id="bv" type="number" step="0.01" value="${aberto(t)}"></label><label>Data<input id="bd" type="date" value="${today()}"></label></div>
+ <div class="r"><label>Juros e multa (R$)<input id="bj" type="number" step="0.01" value="0"></label><label>Desconto (R$)<input id="bs" type="number" step="0.01" value="0"></label></div>
+ ${pg?'':'<label>Autorizado por<input id="ba"></label>'}<p class="k">Juros e multa fazem parte do valor ${pg?'pago':'recebido'}, mas não abatem o principal. O desconto abate o principal sem sair do caixa.</p></div>
+ <div class="bar"><button class="btn" onclick="baixar('${id}')">Confirmar</button><button class="btn o" onclick="$('#dlg').close()">Cancelar</button></div>`)}
+function baixar(id){
+ const t=S.titles.find(x=>x.id==id),p=parseFloat($('#bv').value)||0,j=parseFloat($('#bj').value)||0,ds=parseFloat($('#bs').value)||0,d=$('#bd').value;
+ const pr=+(p-j+ds).toFixed(2);
+ if(p<0||!d||pr<=0){alert('Informe um valor e uma data válidos.');return}
+ if(pr>aberto(t)+0.005){alert('O valor abate mais que o saldo em aberto. Ajuste valor, juros ou desconto.');return}
+ t.pago=+(t.pago+pr).toFixed(2);t.hist.push({k:'Baixa',d,p,j,ds,pr,por:sess,aut:t.tipo=='receber'?($('#ba')?$('#ba').value.trim():''):(t.aprovPor||'')});save();$('#dlg').close();render()}
+function cancelar(id){const t=S.titles.find(x=>x.id==id),j=prompt('Justificativa do cancelamento (obrigatória):');if(!j||!j.trim())return;t.canc=true;t.hist.push({k:'Cancelado: '+j.trim(),d:today()});save();render()}
+function hist(id){
+ const t=S.titles.find(x=>x.id==id);
+ dlg(`<h1>Histórico</h1><p class="sub">${esc(t.desc)} · ${esc(pname(t.pid))} · ${t.forma||''}</p>`+(t.hist.length?t.hist.map(h=>`<div class="card" style="margin-bottom:8px">${D(h.d)} · ${h.k=='Baixa'?`Baixa de ${R(h.p)} (juros ${R(h.j)}, desconto ${R(h.ds)})`:esc(h.k)}</div>`).join(''):'<div class="empty">Nenhum evento ainda.</div>')+`<div class="bar"><button class="btn o" onclick="$('#dlg').close()">Fechar</button></div>`)}
+
+/* FLUXO */
+function fluxo(){
+ const T=S.titles.filter(t=>!t.canc),b=today().slice(0,8)+'01',ms=[];for(let i=-2;i<=5;i++)ms.push(addM(b,i).slice(0,7));
+ let acc=0;
+ const rows=ms.map(m=>{
+  const rr=sum(T.filter(t=>t.tipo=='receber'),t=>sum(t.hist.filter(h=>h.k=='Baixa'&&h.d.startsWith(m)),h=>h.p)),
+  rp=sum(T.filter(t=>t.tipo=='pagar'),t=>sum(t.hist.filter(h=>h.k=='Baixa'&&h.d.startsWith(m)),h=>h.p)),
+  pr=sum(T.filter(t=>t.tipo=='receber'&&t.venc.startsWith(m)),aberto),pp=sum(T.filter(t=>t.tipo=='pagar'&&t.venc.startsWith(m)),aberto);
+  const sd=rr-rp+pr-pp;acc+=sd;
+  return `<tr><td>${m.slice(5)}/${m.slice(0,4)}</td><td class="n pos">${R(rr)}</td><td class="n neg">${R(rp)}</td><td class="n pos">${R(pr)}</td><td class="n neg">${R(pp)}</td><td class="n ${sd>=0?'pos':'neg'}">${R(sd)}</td><td class="n ${acc>=0?'pos':'neg'}">${R(acc)}</td></tr>`}).join('');
+ return head('Fluxo de caixa','Realizado (baixas feitas) e projetado (saldo em aberto por vencimento), mês a mês, regime de caixa.')+`<div class="tw"><table><tr><th>Mês</th><th class="n">Recebido</th><th class="n">Pago</th><th class="n">A receber</th><th class="n">A pagar</th><th class="n">Saldo do mês</th><th class="n">Acumulado</th></tr>${rows}</table></div>`}
+
+/* RELATÓRIOS */
+function aging(tp){
+ const L=S.titles.filter(t=>t.tipo==tp&&aberto(t)>0),h=new Date(today()+'T12:00:00'),B=[0,0,0,0,0],names=['A vencer','1 a 30 dias','31 a 60 dias','61 a 90 dias','Mais de 90 dias'],by={};
+ L.forEach(t=>{const dd=Math.floor((h-new Date(t.venc+'T12:00:00'))/864e5),i=dd<=0?0:dd<=30?1:dd<=60?2:dd<=90?3:4;B[i]+=aberto(t);by[t.pid]=(by[t.pid]||0)+aberto(t)});
+ const rk=Object.entries(by).sort((a,b)=>b[1]-a[1]).slice(0,8);
+ return `<h2>${tp=='pagar'?'A pagar':'A receber'} por faixa de atraso</h2><div class="grid">${B.map((v,i)=>kpi(names[i],R(v),i>0&&v>0?'neg':'')).join('')}</div>`+(rk.length?`<div class="tw" style="margin-top:12px"><table><tr><th>${tp=='pagar'?'Maiores fornecedores':'Maiores clientes'} em aberto</th><th class="n">Valor</th></tr>${rk.map(([id,v])=>`<tr><td>${esc(pname(id))}</td><td class="n">${R(v)}</td></tr>`).join('')}</table></div>`:'')}
+function rel(){
+ const T=S.titles.filter(t=>!t.canc&&t.tipo=='receber'),tot=sum(T,t=>t.valor),ven=sum(T.filter(t=>aberto(t)>0&&t.venc<today()),aberto);
+ const pm=(tp)=>{const L=S.titles.filter(t=>t.tipo==tp&&!t.canc&&t.hist.some(h=>h.k=='Baixa'));if(!L.length)return '–';const d=L.map(t=>{const u=t.hist.filter(h=>h.k=='Baixa').pop().d;return(new Date(u)-new Date(t.venc))/864e5});return(d.reduce((a,b)=>a+b,0)/d.length).toFixed(1).replace('.',',')+' dias'};
+ return head('Relatórios e aging','Inadimplência, prazos e concentração por cliente ou fornecedor.')+`<div class="grid">${kpi('Inadimplência (sobre emitido)',tot?(ven/tot*100).toFixed(1).replace('.',',')+'%':'–',ven>0?'neg':'')}${kpi('Atraso médio no recebimento',pm('receber'))}${kpi('Atraso médio no pagamento',pm('pagar'))}</div><p class="k">Atraso médio: dias entre o vencimento e a última baixa (negativo = pago antes).</p>`+aging('receber')+aging('pagar')+`<div class="bar" style="margin-top:20px"><button class="btn o" onclick="csv()">Exportar lançamentos em CSV</button></div>`}
+async function csv(){
+ const rows=[['Tipo','Descrição','Parte','Categoria','Vencimento','Valor','Pago','Em aberto','Situação','NF']].concat(S.titles.map(t=>[t.tipo,t.desc,pname(t.pid),t.cat||'',t.venc,t.valor,t.pago,aberto(t),status(t),t.nf||'']));
+ await dl('lancamentos-'+today()+'.csv','\ufeff'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n'))}
+
+/* CADASTROS */
+function cad(){
+ const L=[...S.parties].sort((a,b)=>a.nome.localeCompare(b.nome));
+ return head('Clientes e fornecedores','Cadastro base para todos os lançamentos.')+`<div class="bar"><button class="btn" onclick="novoP()">Novo cadastro</button></div>`+(L.length?`<div class="tw"><table><tr><th>Nome</th><th>Tipo</th><th>CNPJ/CPF</th><th>Contato</th><th>Condição / dados bancários</th><th></th></tr>${L.map(p=>`<tr><td>${esc(p.nome)}</td><td>${p.tipo}</td><td>${esc(p.doc||'–')}</td><td>${esc(p.contato||'–')}</td><td>${esc(p.banco||'–')}</td><td><button class="btn s o" onclick="edP('${p.id}')">Editar</button> <button class="btn s d" onclick="delP('${p.id}')">Excluir</button></td></tr>`).join('')}</table></div>`:'<div class="card empty">Nenhum cadastro ainda. Adicione seu primeiro cliente ou fornecedor.</div>')}
+function novoP(){dlg(`<h1>Novo cadastro</h1><div class="f"><label>Tipo<select id="pt"><option value="cliente">Cliente</option><option value="fornecedor">Fornecedor</option></select></label><label>Nome ou razão social<input id="pn"></label><div class="r"><label>CNPJ/CPF<input id="pd"></label><label>Contato (telefone ou e-mail)<input id="pc"></label></div><label>Condição de pagamento / PIX / dados bancários<input id="pb"></label></div><div class="bar"><button class="btn" onclick="salvarP()">Salvar cadastro</button><button class="btn o" onclick="$('#dlg').close()">Cancelar</button></div>`)}
+function salvarP(){const n=$('#pn').value.trim();if(!n){alert('Informe o nome.');return}S.parties.push({id:uid(),tipo:$('#pt').value,nome:n,doc:$('#pd').value.trim(),contato:$('#pc').value.trim(),banco:$('#pb').value.trim()});save();$('#dlg').close();render()}
+function delP(id){if(S.titles.some(t=>t.pid==id)){alert('Este cadastro tem lançamentos e não pode ser excluído.');return}if(confirm('Excluir este cadastro?')){S.parties=S.parties.filter(p=>p.id!=id);save();render()}}
+
+/* EDITAR CADASTRO E RECIBO */
+function edP(id){const p=S.parties.find(x=>x.id==id);dlg(`<h1>Editar cadastro</h1><p class="sub">${p.tipo=='cliente'?'Cliente':'Fornecedor'}</p><div class="f"><label>Nome ou razão social<input id="pn" value="${esc(p.nome)}"></label><div class="r"><label>CNPJ/CPF<input id="pd" value="${esc(p.doc)}"></label><label>Contato (telefone ou e-mail)<input id="pc" value="${esc(p.contato)}"></label></div><label>Condição de pagamento / PIX / dados bancários<input id="pb" value="${esc(p.banco)}"></label></div><div class="bar"><button class="btn" onclick="salvarEdP('${id}')">Salvar alterações</button><button class="btn o" onclick="$('#dlg').close()">Cancelar</button></div>`)}
+function salvarEdP(id){const p=S.parties.find(x=>x.id==id),n=$('#pn').value.trim();if(!n){alert('Informe o nome.');return}p.nome=n;p.doc=$('#pd').value.trim();p.contato=$('#pc').value.trim();p.banco=$('#pb').value.trim();save();$('#dlg').close();render()}
+function ext(n){const u=['','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'],dz=['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'],ct=['','cento','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
+ const t=x=>{if(x==100)return'cem';const r=[];if(x>=100)r.push(ct[Math.floor(x/100)]);x%=100;if(x>0)r.push(x<20?u[x]:dz[Math.floor(x/10)]+(x%10?' e '+u[x%10]:''));return r.join(' e ')};
+ const g=x=>{const m=Math.floor(x/1e6),k=Math.floor(x%1e6/1e3),r=x%1000,q=[];if(m)q.push(t(m)+(m>1?' milhões':' milhão'));if(k)q.push(k==1?'mil':t(k)+' mil');if(r)q.push(t(r));return q.join(' e ')};
+ const i=Math.floor(n),c=Math.round((n-i)*100);let s=i?g(i)+(i==1?' real':' reais'):'';if(c)s+=(s?' e ':'')+t(c)+(c==1?' centavo':' centavos');return s||'zero reais'}
+function rDados(t){const pg=t.tipo=='pagar',parte=pname(t.pid),mo=R(t.valor).replace(/\u00a0/g,' ');
+ return{num:'Nº '+t.id.toUpperCase(),mo,txt:pg?`Eu, ${parte}, declaro ter recebido a importância de ${mo} (${ext(t.valor)}), referente a "${t.desc}".`:`Recebemos de ${parte} a importância de ${mo} (${ext(t.valor)}), referente a "${t.desc}".`,
+ L:[['Forma de pagamento',t.forma||'–'],['Vencimento',D(t.venc)],['Categoria',t.cat||'–'],['Nota fiscal / documento',t.nf||'–'],['Data de emissão',D(today())],['Emitido por',sess||'–']],ass:pg?parte:'Assinatura do emitente'}}
+function recibo(id){
+ const t=S.titles.find(x=>x.id==id),r=rDados(t);
+ const via=n=>`<div style="border:1px solid #000;padding:16px 18px"><div style="display:flex;justify-content:space-between;font-weight:700"><span style="font-size:18px">RECIBO</span><span>${r.num} · ${n}ª via</span></div><div style="font-size:18px;font-weight:700;margin:12px 0 8px">${r.mo}</div><p style="margin:0 0 10px">${esc(r.txt)}</p>${r.L.map(([k,x])=>`<div style="font-size:12px"><b>${k}:</b> ${esc(x)}</div>`).join('')}<div style="border-top:1px solid #000;width:60%;margin:30px auto 4px"></div><div style="text-align:center;font-size:12px">${esc(r.ass)}</div></div>`;
+ dlg(`<h1>Recibo (visualização)</h1><p class="sub">Confira antes de baixar. O PDF sai com duas vias por página.</p><div style="background:#fff;color:#000;padding:14px;border-radius:8px;max-height:60vh;overflow:auto;font-size:13px;line-height:1.4">${via(1)}<div style="border-top:1px dashed #000;margin:12px 0"></div>${via(2)}</div><div class="bar" style="margin-top:14px"><button class="btn" onclick="reciboPdf('${id}')">Baixar PDF</button><button class="btn o" onclick="$('#dlg').close()">Fechar</button></div>`);$('#dlg').style.width='min(620px,94vw)'}
+async function reciboPdf(id){
+ if(!(window.jspdf&&window.jspdf.jsPDF)){alert('A biblioteca de PDF não carregou. Verifique a conexão com a internet e tente de novo.');return}
+ const t=S.titles.find(x=>x.id==id),r=rDados(t),doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+ doc.setTextColor(0,0,0);doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);
+ [0,148.5].forEach((oy,n)=>{
+  doc.rect(10,oy+8,190,132);
+  doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text('RECIBO',16,oy+20);doc.setFontSize(10);doc.text(r.num+' - '+(n+1)+'ª via',194,oy+20,{align:'right'});
+  doc.setFontSize(16);doc.text(r.mo,16,oy+34);
+  doc.setFont('helvetica','normal');doc.setFontSize(11);const tx=doc.splitTextToSize(r.txt,178);doc.text(tx,16,oy+44);
+  let y=oy+44+tx.length*5+5;
+  doc.setFontSize(10);r.L.forEach(([k,x])=>{doc.setFont('helvetica','bold');doc.text(k+':',16,y);doc.setFont('helvetica','normal');doc.text(String(x),64,y);y+=6});
+  doc.line(60,oy+128,150,oy+128);doc.text(r.ass,105,oy+134,{align:'center'});
+ });
+ doc.setLineDashPattern([2,2],0);doc.line(5,148.5,205,148.5);doc.setLineDashPattern([],0);
+ await dl('recibo-'+t.id+'.pdf',doc.output('blob'));$('#dlg').close()}
+
+/* RESUMO DE PAGAMENTO */
+function resumo(){
+ const L=[];S.titles.filter(t=>t.tipo=='pagar').forEach(t=>t.hist.forEach((h,i)=>{if(h.k=='Baixa')L.push({t,h,i})}));
+ L.sort((a,b)=>a.h.d<b.h.d?1:-1);
+ return head('Resumo de pagamento','Quem pagou, quem autorizou, quando o pagamento foi liberado e para qual fornecedor.')+(L.length?`<div class="tw"><table><tr><th>Pago por</th><th>Autorizado por</th><th>Data da liberação</th><th>Fornecedor</th><th class="n">Valor pago</th><th></th></tr>${L.map(({t,h,i})=>`<tr><td>${esc(h.por||'–')}</td><td>${esc(h.aut||'–')}</td><td>${D(h.d)}</td><td>${esc(pname(t.pid))}</td><td class="n">${R(h.p)}</td><td><button class="btn s o" onclick="edPag('${t.id}',${i})">Editar</button> <button class="btn s d" onclick="delPag('${t.id}',${i})">Excluir</button></td></tr>`).join('')}</table></div>`:'<div class="card empty">Nenhum pagamento registrado ainda. Os pagamentos feitos em Contas a pagar aparecem aqui.</div>')}
+function edPag(id,i){const t=S.titles.find(x=>x.id==id),h=t.hist[i];
+ dlg(`<h1>Editar pagamento</h1><p class="sub">${esc(t.desc)}</p><div class="f"><label>Pago por<input id="ep" value="${esc(h.por||'')}"></label><label>Autorizado por<input id="ea" value="${esc(h.aut||'')}"></label><div class="r"><label>Data da liberação<input id="ed" type="date" value="${h.d}"></label><label>Fornecedor<select id="ef">${opt('pagar')}</select></label></div><p class="k">Alterar o fornecedor muda o fornecedor da conta inteira.</p></div><div class="bar"><button class="btn" onclick="salvarEd('${id}',${i})">Salvar</button><button class="btn o" onclick="$('#dlg').close()">Cancelar</button></div>`);$('#ef').value=t.pid}
+function salvarEd(id,i){const t=S.titles.find(x=>x.id==id),h=t.hist[i],d=$('#ed').value;if(!d){alert('Informe a data.');return}h.por=$('#ep').value.trim();h.aut=$('#ea').value.trim();h.d=d;t.pid=$('#ef').value;save();$('#dlg').close();render()}
+function delPag(id,i){const t=S.titles.find(x=>x.id==id),h=t.hist[i];if(!confirm('Excluir este pagamento? O valor volta para o saldo em aberto da conta.'))return;t.pago=Math.max(0,+(t.pago-(h.pr||0)).toFixed(2));t.hist.splice(i,1);save();render()}
+
+/* RESUMO DE RECEBIMENTO */
+function resumor(){
+ const L=[];S.titles.filter(t=>t.tipo=='receber').forEach(t=>t.hist.forEach((h,i)=>{if(h.k=='Baixa')L.push({t,h,i})}));
+ L.sort((a,b)=>a.h.d<b.h.d?1:-1);
+ return head('Resumo de recebimento','Quem lançou o recebimento, quem autorizou, quando foi liberado e de qual cliente.')+(L.length?`<div class="tw"><table><tr><th>Lançado por</th><th>Autorizado por</th><th>Data da liberação</th><th>Cliente</th><th class="n">Valor recebido</th><th></th></tr>${L.map(({t,h,i})=>`<tr><td>${esc(h.por||'–')}</td><td>${esc(h.aut||'–')}</td><td>${D(h.d)}</td><td>${esc(pname(t.pid))}</td><td class="n">${R(h.p)}</td><td><button class="btn s o" onclick="edRec('${t.id}',${i})">Editar</button> <button class="btn s d" onclick="delRec('${t.id}',${i})">Excluir</button></td></tr>`).join('')}</table></div>`:'<div class="card empty">Nenhum recebimento registrado ainda. Os recebimentos feitos em Contas a receber aparecem aqui.</div>')}
+function edRec(id,i){const t=S.titles.find(x=>x.id==id),h=t.hist[i];
+ dlg(`<h1>Editar recebimento</h1><p class="sub">${esc(t.desc)}</p><div class="f"><label>Lançado por<input id="ep" value="${esc(h.por||'')}"></label><label>Autorizado por<input id="ea" value="${esc(h.aut||'')}"></label><div class="r"><label>Data da liberação<input id="ed" type="date" value="${h.d}"></label><label>Cliente<select id="ef">${opt('receber')}</select></label></div><p class="k">Alterar o cliente muda o cliente da conta inteira.</p></div><div class="bar"><button class="btn" onclick="salvarEd('${id}',${i})">Salvar</button><button class="btn o" onclick="$('#dlg').close()">Cancelar</button></div>`);$('#ef').value=t.pid}
+function delRec(id,i){const t=S.titles.find(x=>x.id==id),h=t.hist[i];if(!confirm('Excluir este recebimento? O valor volta para o saldo em aberto da conta.'))return;t.pago=Math.max(0,+(t.pago-(h.pr||0)).toFixed(2));t.hist.splice(i,1);save();render()}
+
+/* BACKUP */
+async function dl(name,data){
+ try{const type=name.endsWith('.csv')?'text/csv;charset=utf-8':'application/json';const b=data instanceof Blob?data:new Blob([data],{type}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);return true}
+ catch(e){alert('Não foi possível salvar o arquivo.');return false}}
+async function exportar(){
+ const ok=await dl('backup-financeiro-'+today()+'.json',JSON.stringify({versao:1,exportado:new Date().toISOString(),dados:S},null,1));
+ if(ok){S.bk=new Date().toLocaleString('pt-BR');save();render()}}
+function importar(inp){
+ const f=inp.files[0];if(!f)return;const r=new FileReader();
+ r.onload=()=>{try{const j=JSON.parse(r.result),d=j.dados||j;if(!Array.isArray(d.parties)||!Array.isArray(d.titles))throw 0;if(confirm('Substituir os dados atuais pelo backup selecionado?')){S=d;S.cfg=S.cfg||{aprov:false};save();render()}}catch(e){alert('Arquivo inválido. Escolha um backup JSON gerado por este app.')}};r.readAsText(f)}
+function bk(){
+ return head('Backup','Faça uma cópia de segurança dos seus dados ou recupere uma anterior.')+`<div class="card"><b>Backup dos dados</b><p class="sub" style="margin:6px 0 14px">O arquivo de backup é salvo no seu computador, na pasta de downloads do navegador.</p><div class="bar"><button class="btn" onclick="exportar()">Executar backup</button><label class="btn o">Recuperar backup<input type="file" accept=".json" hidden onchange="importar(this)"></label></div><p class="k">Último backup: ${S.bk||'nunca'}</p></div>`}
+function aj(){
+ return head('Ajustes','Controles internos e manutenção dos dados.')+`<h2>Controles internos</h2><div class="card"><label><input type="checkbox" ${S.cfg.aprov?'checked':''} onchange="S.cfg.aprov=this.checked;save()"> Exigir aprovação antes de pagar (segregação de funções)</label><p class="k">Com isso ligado, o botão Pagar só aparece depois de “Aprovar”. Cancelamentos sempre pedem justificativa e ficam no histórico.</p></div>
+ <h2>Zona de risco</h2><div class="card"><button class="btn d" onclick="if(confirm('Apagar todos os dados deste navegador? Exporte um backup antes.')){S={parties:[],titles:[],cfg:{aprov:false},bk:null};save();render()}">Apagar todos os dados</button></div>`}
+const UK='cpr_users_v1',kd=(e,f)=>{if(e.key==='Enter')f()};let U=[],sess=null,ADM=false,MODE=0;
+async function H(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('cpr|'+s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+async function loadU(){try{const r=localStorage.getItem(UK);if(r)U=JSON.parse(r)}catch(e){}if(!Array.isArray(U))U=[];if(!U.some(x=>x.u==='admin')){U.unshift({u:'admin',h:await H('123456')});saveU()}}
+function saveU(){try{localStorage.setItem(UK,JSON.stringify(U))}catch(e){}}
+function lb(h){const L=$('#login');L.hidden=false;L.innerHTML="<div class='lb'>"+h+"</div>"}
+function showLogin(m){ADM=false;lb(`<div class='logo' style='padding:0 0 18px'>Financeiro<small>Contas a pagar e receber</small></div><div class='f'><label>Usuário<input id='lu' autocomplete='username' onkeydown='kd(event,entrar)'></label><label>Senha<input id='lp' type='password' autocomplete='current-password' onkeydown='kd(event,entrar)'></label></div><p class='err' id='lm'>${m||''}</p><button class='btn' style='width:100%' onclick='entrar()'>Entrar</button><div class='bar' style='margin:14px 0 0'><button class='btn o s' onclick='gate(1)'>Cadastrar usuário</button><button class='btn o s' onclick='gate(2)'>Alterar senha do admin</button></div>`);$('#lu').focus()}
+async function entrar(){const u=$('#lu').value.trim().toLowerCase(),f=U.find(x=>x.u.toLowerCase()===u);if(!f||await H($('#lp').value)!==f.h){$('#lm').textContent='Usuário ou senha incorretos.';return}sess=f.u;try{sessionStorage.setItem('cpr_sess',sess)}catch(e){}$('#login').hidden=true;$('#login').innerHTML='';view='dash';render()}
+function sair(){sess=null;try{sessionStorage.removeItem('cpr_sess')}catch(e){}$('#nav').innerHTML='';$('#app').innerHTML='';showLogin()}
+function gate(m){MODE=m;lb(`<h1>${m==1?'Cadastrar usuário':'Alterar senha do admin'}</h1><p class='sub'>Informe a senha do admin para continuar.</p><div class='f'><label>Senha do admin<input id='ap' type='password' onkeydown='kd(event,adminOk)'></label></div><p class='err' id='lm'></p><div class='bar'><button class='btn' onclick='adminOk()'>Continuar</button><button class='btn o' onclick='showLogin()'>Voltar</button></div>`);$('#ap').focus()}
+async function adminOk(){const a=U.find(x=>x.u==='admin');if(await H($('#ap').value)!==a.h){$('#lm').textContent='Senha do admin incorreta.';return}ADM=true;lb(MODE==1?`<h1>Cadastrar usuário</h1><div class='f'><label>Novo usuário<input id='nu'></label><label>Senha<input id='n1' type='password'></label><label>Confirmar senha<input id='n2' type='password' onkeydown='kd(event,salvarAdm)'></label></div><p class='err' id='lm'></p><div class='bar'><button class='btn' onclick='salvarAdm()'>Cadastrar</button><button class='btn o' onclick='showLogin()'>Voltar</button></div>`:`<h1>Alterar senha do admin</h1><div class='f'><label>Nova senha<input id='n1' type='password'></label><label>Confirmar nova senha<input id='n2' type='password' onkeydown='kd(event,salvarAdm)'></label></div><p class='err' id='lm'></p><div class='bar'><button class='btn' onclick='salvarAdm()'>Salvar nova senha</button><button class='btn o' onclick='showLogin()'>Voltar</button></div>`);$(MODE==1?'#nu':'#n1').focus()}
+async function salvarAdm(){if(!ADM)return showLogin();const p=$('#n1').value,e=$('#lm');if(p.length<4){e.textContent='A senha precisa ter ao menos 4 caracteres.';return}if(p!==$('#n2').value){e.textContent='As senhas não conferem.';return}
+if(MODE==1){const n=$('#nu').value.trim();if(!n){e.textContent='Informe o nome do usuário.';return}if(U.some(x=>x.u.toLowerCase()===n.toLowerCase())){e.textContent='Esse usuário já existe.';return}U.push({u:n,h:await H(p)});saveU();showLogin('Usuário cadastrado. Já pode entrar.')}
+else{U.find(x=>x.u==='admin').h=await H(p);saveU();showLogin('Senha do admin alterada.')}}
+(async()=>{await loadU();let s=null;try{s=sessionStorage.getItem('cpr_sess')}catch(e){}if(s&&U.some(x=>x.u===s)){sess=s;render()}else showLogin()})();
+</script>
+</body>
+</html>
